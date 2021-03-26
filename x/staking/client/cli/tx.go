@@ -43,6 +43,7 @@ func NewTxCmd() *cobra.Command {
 		NewDelegateCmd(),
 		NewRedelegateCmd(),
 		NewUnbondCmd(),
+		NewRotateConsPubKeyCmd(),
 	)
 
 	return stakingTxCmd

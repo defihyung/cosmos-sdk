@@ -566,7 +566,7 @@ func BuildCreateValidatorMsg(clientCtx client.Context, config TxCreateValidatorC
 func NewRotateConsPubKeyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rotate-conspubkey",
-		Short: "change conspubkey of an existing validator account",
+		Short: "change consensus public key of a validator",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {

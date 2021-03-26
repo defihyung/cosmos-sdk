@@ -573,18 +573,12 @@ func NewRotateConsPubKeyCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(">>> 0 Rotate ConsPubkey")
-
 			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
-
-			fmt.Println(">>> 1 Rotate ConsPubkey")
 
 			txf, msg, err := NewBuildRotateConsPubKeyMsg(clientCtx, txf, cmd.Flags())
 			if err != nil {
 				return err
 			}
-
-			fmt.Println(">>> 2 Rotate ConsPubkey")
 
 			return tx.GenerateOrBroadcastTxWithFactory(clientCtx, txf, msg)
 		},

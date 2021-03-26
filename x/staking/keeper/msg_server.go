@@ -358,3 +358,74 @@ func (k msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate) (
 		CompletionTime: completionTime,
 	}, nil
 }
+
+func (k msgServer) RotateConsPubKey(goCtx context.Context, msg *types.MsgRotateConsPubKey) (*types.MsgRotateConsPubKeyResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	valAddr, valErr := sdk.ValAddressFromBech32(msg.ValidatorAddress)
+	if valErr != nil {
+		return nil, valErr
+	}
+
+	validator, found := k.GetValidator(ctx, valAddr)
+	if !found {
+		return nil, types.ErrNoValidatorFound
+	}
+
+	pk, ok := msg.NewConsPubKey.GetCachedValue().(cryptotypes.PubKey)
+	if !ok {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "Expecting cryptotypes.PubKey, got %T", pk)
+	}
+
+	if _, found := k.GetValidatorByConsAddr(ctx, sdk.GetConsAddress(pk)); found {
+		return nil, types.ErrValidatorPubKeyExists
+	}
+
+	cp := ctx.ConsensusParams()
+	if cp != nil && cp.Validator != nil {
+		if !tmstrings.StringInSlice(pk.Type(), cp.Validator.PubKeyTypes) {
+			return nil, sdkerrors.Wrapf(
+				types.ErrValidatorPubKeyTypeNotSupported,
+				"got: %s, expected: %s", pk.Type(), cp.Validator.PubKeyTypes,
+			)
+		}
+	}
+
+	k.SetValidator(ctx, validator)
+	k.SetValidatorByConsAddr(ctx, validator)
+	k.SetNewValidatorByPowerIndex(ctx, validator)
+
+	// TODO: rotation history
+
+	// call the after-creation hook
+	k.AfterValidatorCreated(ctx, validator.GetOperator())
+
+	// move coins from the msg.Address account to a (self-delegation) delegator account
+	// the validator account and global shares are updated within here
+	// NOTE source will always be from a wallet which are unbonded
+	// _, err = k.Keeper.Delegate(ctx, delegatorAddress, msg.Value.Amount, types.Unbonded, validator, true)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	accAddr, err := sdk.AccAddressFromBech32(msg.ValidatorAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx.EventManager().EmitEvents(sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeRotateConsPubKey,
+			sdk.NewAttribute(types.AttributeKeyValidator, msg.ValidatorAddress),
+			sdk.NewAttribute(types.AttributeKeyOldConsPubKey, validator.ConsensusPubkey.GoString()),
+			sdk.NewAttribute(types.AttributeKeyNewConsPubKey, msg.NewConsPubKey.GoString()),
+		),
+		sdk.NewEvent(
+			sdk.EventTypeMessage,
+			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
+			sdk.NewAttribute(sdk.AttributeKeySender, accAddr.String()),
+		),
+	})
+
+	return &types.MsgRotateConsPubKeyResponse{}, nil
+}

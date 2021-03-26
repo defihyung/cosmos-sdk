@@ -11,11 +11,12 @@ import (
 
 // staking message types
 const (
-	TypeMsgUndelegate      = "begin_unbonding"
-	TypeMsgEditValidator   = "edit_validator"
-	TypeMsgCreateValidator = "create_validator"
-	TypeMsgDelegate        = "delegate"
-	TypeMsgBeginRedelegate = "begin_redelegate"
+	TypeMsgUndelegate       = "begin_unbonding"
+	TypeMsgEditValidator    = "edit_validator"
+	TypeMsgCreateValidator  = "create_validator"
+	TypeMsgDelegate         = "delegate"
+	TypeMsgBeginRedelegate  = "begin_redelegate"
+	TypeMsgRotateConsPubKey = "rotate_consensus_pubkey"
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 	_ sdk.Msg                            = &MsgDelegate{}
 	_ sdk.Msg                            = &MsgUndelegate{}
 	_ sdk.Msg                            = &MsgBeginRedelegate{}
+	_ sdk.Msg                            = &MsgRotateConsPubKey{}
 )
 
 // NewMsgCreateValidator creates a new MsgCreateValidator instance.
@@ -347,6 +349,57 @@ func (msg MsgUndelegate) ValidateBasic() error {
 
 	if !msg.Amount.IsValid() || !msg.Amount.Amount.IsPositive() {
 		return ErrBadSharesAmount
+	}
+
+	return nil
+}
+
+// NewRotateConsPubKey creates a new MsgRotateConsPubKey instance.
+//nolint:interfacer
+func NewRotateConsPubKey(valAddr sdk.ValAddress, newConsPubKey cryptotypes.PubKey) (*MsgRotateConsPubKey, error) {
+	var pkAny *codectypes.Any
+	if newConsPubKey != nil {
+		var err error
+		if pkAny, err = codectypes.NewAnyWithValue(newConsPubKey); err != nil {
+			return nil, err
+		}
+	}
+
+	return &MsgRotateConsPubKey{
+		ValidatorAddress: valAddr.String(),
+		NewConsPubKey:    pkAny,
+	}, nil
+}
+
+// Route implements the sdk.Msg interface.
+func (msg MsgRotateConsPubKey) Route() string { return RouterKey }
+
+// Type implements the sdk.Msg interface.
+func (msg MsgRotateConsPubKey) Type() string { return TypeMsgRotateConsPubKey }
+
+// GetSigners implements the sdk.Msg interface.
+func (msg MsgRotateConsPubKey) GetSigners() []sdk.AccAddress {
+	accAddr, err := sdk.AccAddressFromBech32(msg.ValidatorAddress)
+	if err != nil {
+		panic(err)
+	}
+	return []sdk.AccAddress{accAddr}
+}
+
+// GetSignBytes implements the sdk.Msg interface.
+func (msg MsgRotateConsPubKey) GetSignBytes() []byte {
+	bz := ModuleCdc.MustMarshalJSON(&msg)
+	return sdk.MustSortJSON(bz)
+}
+
+// ValidateBasic implements the sdk.Msg interface.
+func (msg MsgRotateConsPubKey) ValidateBasic() error {
+	if msg.ValidatorAddress == "" {
+		return ErrEmptyValidatorAddr
+	}
+
+	if msg.NewConsPubKey == nil {
+		return ErrEmptyValidatorPubKey
 	}
 
 	return nil

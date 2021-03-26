@@ -560,3 +560,69 @@ func BuildCreateValidatorMsg(clientCtx client.Context, config TxCreateValidatorC
 
 	return txBldr, msg, nil
 }
+
+// NewRotateConsPubKeyCmd implements the validator conspubkey rotation command handler.
+func NewRotateConsPubKeyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotate-conspubkey",
+		Short: "change conspubkey of an existing validator account",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+
+			txf, msg, err := NewBuildRotateConsPubKeyMsg(clientCtx, txf, cmd.Flags())
+			if err != nil {
+				return err
+			}
+
+			return tx.GenerateOrBroadcastTxWithFactory(clientCtx, txf, msg)
+		},
+	}
+
+	cmd.Flags().AddFlagSet(FlagSetPublicKey())
+
+	cmd.Flags().String(FlagIP, "", fmt.Sprintf("The node's public IP. It takes effect only when used in combination with --%s", flags.FlagGenerateOnly))
+	cmd.Flags().String(FlagNodeID, "", "The node's ID")
+	flags.AddTxFlagsToCmd(cmd)
+
+	_ = cmd.MarkFlagRequired(flags.FlagFrom)
+	_ = cmd.MarkFlagRequired(FlagPubKey)
+
+	return cmd
+}
+
+// NewBuildRotateConsPubKeyMsg makes a new MsgRotateConsPubKey.
+func NewBuildRotateConsPubKeyMsg(clientCtx client.Context, txf tx.Factory, fs *flag.FlagSet) (tx.Factory, sdk.Msg, error) {
+	valAddr := clientCtx.GetFromAddress()
+	pkStr, _ := fs.GetString(FlagPubKey)
+
+	pk, err := sdk.GetPubKeyFromBech32(sdk.Bech32PubKeyTypeConsPub, pkStr)
+	if err != nil {
+		return txf, nil, err
+	}
+
+	msg, err := types.NewRotateConsPubKey(sdk.ValAddress(valAddr), pk)
+	if err != nil {
+		return txf, nil, err
+	}
+
+	if err := msg.ValidateBasic(); err != nil {
+		return txf, nil, err
+	}
+
+	genOnly, _ := fs.GetBool(flags.FlagGenerateOnly)
+	if genOnly {
+		ip, _ := fs.GetString(FlagIP)
+		nodeID, _ := fs.GetString(FlagNodeID)
+
+		if nodeID != "" && ip != "" {
+			txf = txf.WithMemo(fmt.Sprintf("%s@%s:26656", nodeID, ip))
+		}
+	}
+
+	return txf, msg, nil
+}

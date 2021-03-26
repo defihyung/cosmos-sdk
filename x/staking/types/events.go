@@ -9,6 +9,7 @@ const (
 	EventTypeDelegate             = "delegate"
 	EventTypeUnbond               = "unbond"
 	EventTypeRedelegate           = "redelegate"
+	EventTypeRotateConsPubKey     = "rotate_consensus_pubkey"
 
 	AttributeKeyValidator         = "validator"
 	AttributeKeyCommissionRate    = "commission_rate"
@@ -17,5 +18,7 @@ const (
 	AttributeKeyDstValidator      = "destination_validator"
 	AttributeKeyDelegator         = "delegator"
 	AttributeKeyCompletionTime    = "completion_time"
+	AttributeKeyOldConsPubKey     = "old_consensus_pubkey"
+	AttributeKeyNewConsPubKey     = "new_consensus_pubkey"
 	AttributeValueCategory        = ModuleName
 )
